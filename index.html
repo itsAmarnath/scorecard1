@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Cric Scorecard – Prototype</title>
+    <title>Upgraded Cric Scorecard – Prototype</title>
     <!-- Tailwind Play CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- React 18 + ReactDOM 18 -->
@@ -37,13 +37,23 @@
 
         // Players (saved list + on-field)
         const [savedPlayers, setSavedPlayers] = useState([
-          { name: "Ajay", common: false },
-          { name: "Rohit", common: false },
-          { name: "Rahul", common: false },
+          { name: "Amarnath", common: false },
+          { name: "Bagath", common: false },
+          { name: "Bala", common: false },
+          { name: "Dinu", common: false },
+          { name: "Gowtham", common: false },
+          { name: "Santosh", common: false },
+          { name: "Selva", common: false },
+           { name: "Siva", common: false },
+          { name: "Srini", common: false },
+          { name: "Rajkumar", common: false },
+          { name: "Thayappan", common: false },
+          { name: "Vijay", common: false },
+          { name: "Wiky", common: false },
         ]);
         const [bowler, setBowler] = useState({ 1: "—", 2: "—" });
         const [batsmen, setBatsmen] = useState({
-          1: { striker: "Ajay", nonStriker: "Rohit" },
+          1: { striker: "Striker", nonStriker: "Nonstriker" },
           2: { striker: "—", nonStriker: "—" },
         });
 
@@ -692,3 +702,4 @@
     </script>
   </body>
 </html>
+
