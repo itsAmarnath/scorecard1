@@ -1,18 +1,26 @@
+
+
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Upgraded Altura Turf Scorecard </title>
-    <!-- Tailwind Play CDN -->
+    <title>Upgraded Altura turf scorecard</title>
+    <meta name="theme-color" content="#0a0a0b" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React 18 + ReactDOM 18 -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel for JSX in the browser -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+      html, body { height: 100%; }
+      body { background:#09090b; }
+      ::-webkit-scrollbar { width: 8px; height: 8px; }
+      ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 8px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      select { outline: none; }
+    </style>
   </head>
-  <body class="bg-zinc-950">
+  <body>
     <div id="root"></div>
 
     <script type="text/babel">
@@ -29,7 +37,7 @@
 
         // Overs / balls
         const ballsPerOver = 6;
-        const [totalOvers, setTotalOvers] = useState({ 1: 8, 2: 8 });
+        const [totalOvers, setTotalOvers] = useState({ 1: 4, 2: 4 });
         const [ballsBowled, setBallsBowled] = useState({ 1: 0, 2: 0 }); // legal balls bowled per innings
 
         // Score
@@ -41,10 +49,11 @@
           { name: "Aravind", common: false },
           { name: "Bagath", common: false },
           { name: "Bala", common: false },
-          { name: "Dinu", common: false },
+		  { name: "Dinu", common: false },
           { name: "Gowtham", common: false },
           { name: "Mahendra", common: false },
-          { name: "Mani", common: false },
+          { name: "Maninanda", common: false },
+		  { name: "Samar", common: false },
           { name: "Santosh", common: false },
           { name: "Selva", common: false },
            { name: "Siva", common: false },
@@ -53,11 +62,11 @@
           { name: "Thayappan", common: false },
           { name: "Vijay", common: false },
            { name: "Vikas", common: false },
-          { name: "Wiky", common: false },
+          { name: "Vignesh", common: false },
         ]);
         const [bowler, setBowler] = useState({ 1: "—", 2: "—" });
         const [batsmen, setBatsmen] = useState({
-          1: { striker: "Striker", nonStriker: "Nonstriker" },
+          1: { striker: "STRIKER SELECT", nonStriker: "SELECT NON-STRIKER" },
           2: { striker: "—", nonStriker: "—" },
         });
 
@@ -76,12 +85,12 @@
         // Menus / modals
         const [menuOpen, setMenuOpen] = useState(false); // hamburger
         const [summaryOpen, setSummaryOpen] = useState(false); // innings summary modal
-        const [picker, setPicker] = useState(null); // { role: 'bowler'|'striker'|'nonStriker' }
-        const [newPlayerName, setNewPlayerName] = useState("");
-        const [newPlayerCommon, setNewPlayerCommon] = useState(false);
         const [wicketOpen, setWicketOpen] = useState(false);
 
-        // NEW: Setup wizard state for starting Innings 2
+        // Inline hint to pick next bowler after over ends
+        const [bowlerHint, setBowlerHint] = useState(false);
+
+        // Setup wizard state for starting Innings 2
         const [setupOpen, setSetupOpen] = useState(false);
         const [setupStep, setSetupStep] = useState(1); // 1: striker, 2: non-striker, 3: bowler
         const [setupStriker, setSetupStriker] = useState("");
@@ -119,36 +128,9 @@
           });
         };
 
-        // ===== Player picker =====
-        const openPicker = (role) => {
-          setNewPlayerName("");
-          setNewPlayerCommon(false);
-          setPicker({ role });
-        };
-        const applyPlayer = (name) => {
-          if (!name) return;
-          // Add to saved list if missing
-          setSavedPlayers((prev) => (prev.some((p) => p.name.toLowerCase() === name.toLowerCase()) ? prev : [...prev, { name, common: false }]));
-
-          if (picker?.role === "bowler") {
-            setBowler((p) => ({ ...p, [innings]: name }));
-            ensureBowler(name);
-            // New over for this bowler
-            setCurrentOverRuns((r) => ({ ...r, [innings]: 0 }));
-          } else if (picker?.role) {
-            setBatsmen((p) => ({ ...p, [innings]: { ...p[innings], [picker.role]: name } }));
-            ensureBatter(name);
-          }
-          setPicker(null);
-        };
-        const addNewPlayer = () => {
-          if (!newPlayerName.trim()) return;
-          const entry = { name: newPlayerName.trim(), common: newPlayerCommon };
-          setSavedPlayers((prev) => (prev.some((p) => p.name.toLowerCase() === entry.name.toLowerCase()) ? prev.map((p) => (p.name.toLowerCase() === entry.name.toLowerCase() ? entry : p)) : [...prev, entry]));
-          applyPlayer(entry.name);
-        };
+        // Toggle 'common' flag helper
         const toggleCommonFor = (name) => {
-          setSavedPlayers((prev) => prev.map((p) => (p.name === name ? { ...p, common: !p.common } : p)));
+          setSavedPlayers((prev) => prev.map(p => p.name === name ? { ...p, common: !p.common } : p));
         };
 
         // ===== Wicket flow =====
@@ -156,7 +138,6 @@
         const startWicketFlow = () => { setPendingReplaceRole(null); setWicketOpen(true); };
         const chooseOutAndPickReplacement = (role) => {
           setPendingReplaceRole(role);
-          // Mark out in batting stats
           const outName = role === "striker" ? batsmen[innings].striker : batsmen[innings].nonStriker;
           ensureBatter(outName);
           setBattingStats((prev) => {
@@ -165,13 +146,15 @@
             return { ...prev, [innings]: curInn };
           });
           setWicketOpen(false);
-          openPicker(role); // choose replacement
         };
 
         // ===== Undo history =====
         const [history, setHistory] = useState([]);
         const snapshot = () => {
-          setHistory((h) => [ ...h, JSON.stringify({ score, ballsBowled, currentOverEvents, currentOverRuns, lastOverStr, batsmen, bowler, battingStats, bowlingStats }) ]);
+          setHistory((h) => [
+            ...h,
+            JSON.stringify({ score, ballsBowled, currentOverEvents, currentOverRuns, lastOverStr, batsmen, bowler, battingStats, bowlingStats }),
+          ]);
         };
         const undo = () => {
           const h = [...history];
@@ -217,7 +200,7 @@
             const s = cur[innings];
             if (ev.kind === "RUNS") s.runs += ev.runs || 0;
             if (ev.kind === "WIDE") s.runs += 1;
-            if (ev.kind === "NOBALL") s.runs += 0; // your rule
+            if (ev.kind === "NOBALL") s.runs += 0; // custom rule
             if (ev.kind === "WICKET") s.wkts += 1;
             return cur;
           });
@@ -243,7 +226,6 @@
           } else if (ev.kind === "DOT") {
             setBattingStats((prev) => { const inn = { ...(prev[innings] || {}) }; const bs = { ...(inn[striker] || { runs: 0, balls: 0, fours: 0, sixes: 0, out: false }) }; bs.balls += 1; inn[striker] = bs; return { ...prev, [innings]: inn }; });
           } else if (ev.kind === "WICKET") {
-            // Count ball faced to striker by default
             setBattingStats((prev) => { const inn = { ...(prev[innings] || {}) }; const bs = { ...(inn[striker] || { runs: 0, balls: 0, fours: 0, sixes: 0, out: false }) }; bs.balls += 1; inn[striker] = bs; return { ...prev, [innings]: inn }; });
           }
 
@@ -271,36 +253,28 @@
           }
         };
 
-        const legalBallsThisOver = currentOverEvents[innings]?.filter((b) => b.legal).length || 0;
+        const legalBallsThisOver = (currentOverEvents[innings] || []).filter((b) => b.legal).length;
 
         const endOver = () => {
-          // Move to last over string
           const str = (currentOverEvents[innings] || []).map((ev) => symbolFor(ev)).join(" ") || "—";
           setLastOverStr((prev) => ({ ...prev, [innings]: str }));
 
-          // Maidens for current bowler
           if (currentOverRuns[innings] === 0) {
             const cb = bowler[innings];
             setBowlingStats((prev) => { const inn = { ...(prev[innings] || {}) }; const bs = { ...(inn[cb] || { balls: 0, runs: 0, wickets: 0, maidens: 0 }) }; bs.maidens += 1; inn[cb] = bs; return { ...prev, [innings]: inn }; });
           }
 
-          // Reset current over trackers
           setCurrentOverEvents((prev) => ({ ...prev, [innings]: [] }));
           setCurrentOverRuns((r) => ({ ...r, [innings]: 0 }));
 
-          // Auto striker swap at end of over
           setBatsmen((p) => ({ ...p, [innings]: { striker: p[innings].nonStriker, nonStriker: p[innings].striker } }));
 
-          // Ask for next bowler
-          openPicker("bowler");
+          setBowlerHint(true);
         };
 
-        const finalizeOverIfComplete = () => {
+        useEffect(() => {
           if (legalBallsThisOver >= ballsPerOver) endOver();
-        };
-
-        // Watch for automatic end-of-over when 6 legal balls bowled
-        useEffect(() => { finalizeOverIfComplete(); /* eslint-disable-next-line */ }, [currentOverEvents, ballsBowled, innings]);
+        }, [legalBallsThisOver]);
 
         // Buttons
         const addRuns = (n) => recordBall({ kind: "RUNS", runs: n, legal: true });
@@ -319,18 +293,16 @@
         };
 
         // Display helpers
-        const currentOverStr = (currentOverEvents[innings] || []).map((ev) => symbolFor(ev)).join(" ") || "—";
         const econ = (runs, balls) => (balls ? (runs * 6) / balls : 0);
         const oversFmt = (balls) => `${Math.floor(balls / ballsPerOver)}.${balls % ballsPerOver}`;
+        const currentOverStr = (currentOverEvents[innings] || []).map((ev) => symbolFor(ev)).join(" ") || "—";
 
         // ===== Menu actions =====
         const endInnings = () => {
           if (innings === 1) {
-            // Set target for chase
             const targetRuns = score[1].runs + 1; // simple target
             setTarget(targetRuns);
-
-            // Mirror overs from Innings 1 -> Innings 2 so balls remaining matches your match setup
+            // Mirror overs from Innings 1 -> Innings 2
             setTotalOvers((p) => ({ ...p, 2: p[1] }));
 
             // Switch to Innings 2 and reset basics
@@ -351,8 +323,102 @@
             window.alert("Already in Innings 2.");
           }
         };
+// --- Local persistence (autosave + export/import) ---
+const STORAGE_KEY = "cricScorecard.v1";
 
-        // ===== Components =====
+function buildSnapshot() {
+  return {
+    matchNo,
+    innings,
+    totalOvers,
+    ballsBowled,
+    score,
+    savedPlayers,
+    bowler,
+    batsmen,
+    battingStats,
+    bowlingStats,
+    currentOverEvents,
+    currentOverRuns,
+    lastOverStr,
+    target,
+    history, // keep Undo history too
+  };
+}
+
+function restoreFrom(s) {
+  if (!s) return;
+  setInnings(s.innings ?? 1);
+  setTotalOvers(s.totalOvers ?? {1:8,2:8});
+  setBallsBowled(s.ballsBowled ?? {1:0,2:0});
+  setScore(s.score ?? {1:{runs:0,wkts:0},2:{runs:0,wkts:0}});
+  setSavedPlayers(s.savedPlayers ?? []);
+  setBowler(s.bowler ?? {1:"—",2:"—"});
+  setBatsmen(s.batsmen ?? {1:{striker:"—",nonStriker:"—"},2:{striker:"—",nonStriker:"—"}});
+  setBattingStats(s.battingStats ?? {1:{},2:{}});
+  setBowlingStats(s.bowlingStats ?? {1:{},2:{}});
+  setCurrentOverEvents(s.currentOverEvents ?? {1:[],2:[]});
+  setCurrentOverRuns(s.currentOverRuns ?? {1:0,2:0});
+  setLastOverStr(s.lastOverStr ?? {1:"—",2:"—"});
+  setTarget(s.target ?? 0);
+  setHistory(s.history ?? []);
+}
+
+// On first load, restore if present
+useEffect(() => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) restoreFrom(JSON.parse(raw));
+  } catch (e) {
+    console.warn("Restore failed:", e);
+  }
+}, []);
+
+// Autosave whenever important state changes
+useEffect(() => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(buildSnapshot()));
+  } catch (e) {
+    console.warn("Autosave failed:", e);
+  }
+}, [
+  innings, totalOvers, ballsBowled, score, savedPlayers, bowler, batsmen,
+  battingStats, bowlingStats, currentOverEvents, currentOverRuns, lastOverStr, target, history
+]);
+
+// Manual actions (used by menu)
+function exportMatch() {
+  const blob = new Blob([JSON.stringify(buildSnapshot(), null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `cric-scorecard-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importMatch() {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "application/json";
+  input.onchange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try { restoreFrom(JSON.parse(reader.result)); }
+      catch (err) { alert("Invalid file"); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+function clearSaved() {
+  localStorage.removeItem(STORAGE_KEY);
+  alert("Saved local copy cleared. (Current screen stays; reload to see it gone.)");
+}
+
+        // ===== Components defined within App for access to state =====
         const MenuModal = () => (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center" onClick={() => setMenuOpen(false)}>
             <div className="bg-zinc-900 text-zinc-100 w-full sm:w-[420px] rounded-t-2xl sm:rounded-2xl p-4" onClick={(e) => e.stopPropagation()}>
@@ -362,18 +428,6 @@
                 <button className="w-full px-3 py-3 rounded-xl bg-yellow-400 text-black font-semibold" onClick={endInnings}>End Innings (Start Chase)</button>
                 <button className="w-full px-3 py-3 rounded-xl bg-zinc-800" onClick={() => setMenuOpen(false)}>Close</button>
               </div>
-            </div>
-          </div>
-        );
-
-        const PlayerPicker = () => (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center" onClick={() => setPicker(null)}>
-            <div className="bg-zinc-900 text-zinc-100 w-full sm:w-[420px] rounded-t-2xl sm:rounded-2xl p-4" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-lg font-semibold">Pick {picker?.role === "bowler" ? "Bowler" : picker?.role === "striker" ? "Striker" : "Non-striker"}</div>
-                <button className="px-3 py-1 rounded-xl bg-zinc-800" onClick={() => setPicker(null)}>Close</button>
-              </div>
-              <SavedPlayersList onSelect={(n) => applyPlayer(n)} disallow={null} />
             </div>
           </div>
         );
@@ -397,12 +451,7 @@
         const SummaryModal = () => {
           const batMap = battingStats[innings] || {};
           const bowlMap = bowlingStats[innings] || {};
-          const batRows = Object.keys(batMap);
-          const bowlRows = Object.keys(bowlMap);
           const sr = (r, b) => (b ? ((r * 100) / b).toFixed(2) : "—");
-          const econ = (runs, balls) => (balls ? (runs * 6) / balls : 0);
-          const oversFmt = (balls) => `${Math.floor(balls / ballsPerOver)}.${balls % ballsPerOver}`;
-
           return (
             <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center" onClick={() => setSummaryOpen(false)}>
               <div className="bg-zinc-900 text-zinc-100 w-full sm:w-[520px] rounded-t-2xl sm:rounded-2xl p-4" onClick={(e) => e.stopPropagation()}>
@@ -410,15 +459,12 @@
                   <div className="text-lg font-semibold">Innings Summary</div>
                   <button className="px-3 py-1 rounded-xl bg-zinc-800" onClick={() => setSummaryOpen(false)}>Close</button>
                 </div>
-
                 <div className="flex gap-2 mb-3">
                   {[1, 2].map((i) => (
                     <button key={i} onClick={() => setInnings(i)} className={`px-3 py-1 rounded-xl ${innings === i ? "bg-yellow-400 text-black" : "bg-zinc-800"}`}>Innings {i}</button>
                   ))}
                 </div>
-
                 <div className="mb-3 text-sm">Score: <span className="font-semibold">{score[innings].runs}-{score[innings].wkts}</span> · Overs: <span className="font-semibold">{oversDisplay}</span></div>
-
                 <div className="text-sm font-semibold mb-1">Batters</div>
                 <div className="rounded-xl overflow-hidden border border-zinc-800">
                   <table className="w-full text-sm">
@@ -433,10 +479,8 @@
                       </tr>
                     </thead>
                     <tbody>
-                      {batRows.length === 0 && (
-                        <tr><td className="px-3 py-2" colSpan={6}>No batting data yet.</td></tr>
-                      )}
-                      {batRows.map((name) => (
+                      {Object.keys(batMap).length === 0 && (<tr><td className="px-3 py-2" colSpan={6}>No batting data yet.</td></tr>)}
+                      {Object.keys(batMap).map((name) => (
                         <tr key={name} className="odd:bg-zinc-950 even:bg-zinc-900">
                           <td className="px-3 py-2">{name}{batsmen[innings].striker === name ? "*" : ""}</td>
                           <td className="text-right px-2">{batMap[name].runs}</td>
@@ -449,7 +493,6 @@
                     </tbody>
                   </table>
                 </div>
-
                 <div className="text-sm font-semibold mt-4 mb-1">Bowlers</div>
                 <div className="rounded-xl overflow-hidden border border-zinc-800">
                   <table className="w-full text-sm">
@@ -464,9 +507,7 @@
                       </tr>
                     </thead>
                     <tbody>
-                      {Object.keys(bowlMap).length === 0 && (
-                        <tr><td className="px-3 py-2" colSpan={6}>No bowling data yet.</td></tr>
-                      )}
+                      {Object.keys(bowlMap).length === 0 && (<tr><td className="px-3 py-2" colSpan={6}>No bowling data yet.</td></tr>)}
                       {Object.keys(bowlMap).map((name) => {
                         const bs = bowlMap[name];
                         return (
@@ -488,11 +529,11 @@
           );
         };
 
-        // Saved players list component (used in multiple modals)
         function SavedPlayersList({ onSelect, disallow }) {
           const [localName, setLocalName] = useState("");
           const [localCommon, setLocalCommon] = useState(false);
-          const filtered = savedPlayers.filter((p) => p.name.toLowerCase().includes(setupSearch.toLowerCase()))
+          const filtered = savedPlayers
+            .filter((p) => p.name.toLowerCase().includes(setupSearch.toLowerCase()))
             .sort((a, b) => (a.common === b.common ? a.name.localeCompare(b.name) : a.common ? -1 : 1));
 
           return (
@@ -556,42 +597,34 @@
               </div>
               <div className="text-sm mb-2 opacity-80">Target <span className="font-semibold">{target}</span>. Pick batting pair and bowler.</div>
 
-              {setupStep === 1 && (
-                <>
-                  <div className="text-sm font-semibold mb-2">Pick <span className="text-yellow-300">Striker</span></div>
-                  <SavedPlayersList onSelect={(n) => { setSetupStriker(n); setSetupStep(2); }} disallow={null} />
-                </>
-              )}
+              {setupStep === 1 && (<>
+                <div className="text-sm font-semibold mb-2">Pick <span className="text-yellow-300">Striker</span></div>
+                <SavedPlayersList onSelect={(n) => { setSetupStriker(n); setSetupStep(2); }} disallow={null} />
+              </>)}
 
-              {setupStep === 2 && (
-                <>
-                  <div className="text-sm font-semibold mb-2">Pick <span className="text-yellow-300">Non-striker</span></div>
-                  <SavedPlayersList onSelect={(n) => { setSetupNonStriker(n); setSetupStep(3); }} disallow={setupStriker} />
-                  <div className="mt-2 text-xs opacity-70">(Non-striker cannot be the same as striker)</div>
-                </>
-              )}
+              {setupStep === 2 && (<>
+                <div className="text-sm font-semibold mb-2">Pick <span className="text-yellow-300">Non-striker</span></div>
+                <SavedPlayersList onSelect={(n) => { setSetupNonStriker(n); setSetupStep(3); }} disallow={setupStriker} />
+                <div className="mt-2 text-xs opacity-70">(Non-striker cannot be the same as striker)</div>
+              </>)}
 
-              {setupStep === 3 && (
-                <>
-                  <div className="text-sm font-semibold mb-2">Pick <span className="text-yellow-300">Bowler</span></div>
-                  <SavedPlayersList onSelect={(n) => { setSetupBowler(n); }} disallow={null} />
-                  <div className="mt-3 flex items-center justify-between">
-                    <button className="px-3 py-2 rounded-xl bg-zinc-800" onClick={() => setSetupStep(2)}>Back</button>
-                    <button
-                      disabled={!setupStriker || !setupNonStriker || !setupBowler}
-                      className={`px-4 py-2 rounded-xl font-semibold ${(!setupStriker || !setupNonStriker || !setupBowler) ? "bg-zinc-700" : "bg-yellow-400 text-black"}`}
-                      onClick={() => {
-                        // Apply selections
-                        setBatsmen((p) => ({ ...p, 2: { striker: setupStriker, nonStriker: setupNonStriker } }));
-                        setBowler((p) => ({ ...p, 2: setupBowler }));
-                        // Prime stats
-                        ensureBatter(setupStriker); ensureBatter(setupNonStriker); ensureBowler(setupBowler);
-                        setSetupOpen(false);
-                      }}
-                    >Start Innings 2</button>
-                  </div>
-                </>
-              )}
+              {setupStep === 3 && (<>
+                <div className="text-sm font-semibold mb-2">Pick <span className="text-yellow-300">Bowler</span></div>
+                <SavedPlayersList onSelect={(n) => { setSetupBowler(n); }} disallow={null} />
+                <div className="mt-3 flex items-center justify-between">
+                  <button className="px-3 py-2 rounded-xl bg-zinc-800" onClick={() => setSetupStep(2)}>Back</button>
+                  <button
+                    disabled={!setupStriker || !setupNonStriker || !setupBowler}
+                    className={`px-4 py-2 rounded-xl font-semibold ${(!setupStriker || !setupNonStriker || !setupBowler) ? "bg-zinc-700" : "bg-yellow-400 text-black"}`}
+                    onClick={() => {
+                      setBatsmen((p) => ({ ...p, 2: { striker: setupStriker, nonStriker: setupNonStriker } }));
+                      setBowler((p) => ({ ...p, 2: setupBowler }));
+                      ensureBatter(setupStriker); ensureBatter(setupNonStriker); ensureBowler(setupBowler);
+                      setSetupOpen(false);
+                    }}
+                  >Start Innings 2</button>
+                </div>
+              </>)}
 
               {setupStep > 1 && setupStep < 3 && (
                 <div className="mt-3">
@@ -626,12 +659,7 @@
                 <div className="text-5xl font-extrabold tracking-wide">{score[innings].runs}/{score[innings].wkts}</div>
                 <div className="flex items-center justify-between mt-1 text-sm">
                   <div>Overs {oversDisplay} ({activeBalls} balls)</div>
-                  <button className="text-yellow-300" onClick={() => {
-                    const current = activeOvers;
-                    const val = window.prompt("Set total overs for this innings", String(current));
-                    if (val === null || val === "") return; const n = Math.max(1, Number(val));
-                    setTotalOvers((prev) => ({ ...prev, [innings]: n }));
-                  }} title="Edit overs">✎</button>
+                  <button className="text-yellow-300" onClick={editOvers} title="Edit overs">✎</button>
                 </div>
 
                 {innings === 2 && (
@@ -644,43 +672,132 @@
                   </div>
                 )}
 
-                {/* Bowler */}
+                {/* Bowler dropdown */}
                 <div className="mt-3">
                   <div className="text-xs opacity-70">CURRENT BOWLER</div>
-                  <div className="flex items-center gap-2 text-2xl font-semibold">
-                    <button className="underline decoration-dotted underline-offset-4" onClick={() => openPicker("bowler")}>{bowler[innings]}</button>
+                  <div className="flex items-center gap-2">
+                    <select
+                      className="px-3 py-2 rounded-xl bg-zinc-800"
+                      value={bowler[innings] === "—" ? "" : bowler[innings]}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "__add__") {
+                          const nm = window.prompt("New bowler name");
+                          if (!nm) return;
+                          setSavedPlayers((prev) => (prev.some(p => p.name.toLowerCase() === nm.toLowerCase()) ? prev : [...prev, { name: nm, common: false }]));
+                          setBowler((p) => ({ ...p, [innings]: nm }));
+                          ensureBowler(nm); setBowlerHint(false);
+                        } else {
+                          setBowler((p) => ({ ...p, [innings]: val }));
+                          ensureBowler(val); setBowlerHint(false);
+                        }
+                      }}
+                    >
+                      <option value="" disabled>{bowler[innings] === "—" ? "Select bowler" : "Change bowler"}</option>
+                      {savedPlayers.map(p => (
+                        <option key={p.name} value={p.name}>{p.name}{p.common ? " (C)" : ""}</option>
+                      ))}
+                      <option value="__add__">+ Add new…</option>
+                    </select>
+                    {bowlerHint && <span className="text-xs text-yellow-300">Pick next bowler</span>}
                   </div>
                 </div>
               </div>
 
-              {/* Batsmen row */}
+              {/* Batsmen row with inline dropdowns */}
               <div className="bg-zinc-900 rounded-2xl p-4 mb-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <button className="font-semibold underline decoration-dotted underline-offset-4" onClick={() => openPicker("striker")}>* {batsmen[innings].striker}</button>
+                    <span className="text-xs opacity-70">STRIKER</span>
+                    <select
+                      className="px-2 py-1 rounded-lg bg-zinc-800"
+                      value={batsmen[innings].striker === "—" ? "" : batsmen[innings].striker}
+                      onChange={(e)=>{
+                        const val = e.target.value; if (!val) return;
+                        if (val === "__add__") {
+                          const nm = window.prompt("New batsman (striker)"); if (!nm) return;
+                          setSavedPlayers((prev) => (prev.some(p => p.name.toLowerCase() === nm.toLowerCase()) ? prev : [...prev, { name: nm, common: false }]));
+                          setBatsmen((p)=>({ ...p, [innings]: { ...p[innings], striker: nm } }));
+                          ensureBatter(nm);
+                        } else {
+                          setBatsmen((p)=>({ ...p, [innings]: { ...p[innings], striker: val } }));
+                          ensureBatter(val);
+                        }
+                      }}
+                    >
+                      <option value="" disabled>{batsmen[innings].striker === "—" ? "Select striker" : "Change striker"}</option>
+                      {savedPlayers.filter(p=>p.name!==batsmen[innings].nonStriker).map(p => <option key={p.name} value={p.name}>{p.name}{p.common?" (C)":""}</option>)}
+                      <option value="__add__">+ Add new…</option>
+                    </select>
+                    <span className="text-yellow-400">*</span>
                   </div>
-                  <button onClick={() => setBatsmen((p) => ({ ...p, [innings]: { striker: p[innings].nonStriker, nonStriker: p[innings].striker } }))} className="px-3 py-1 rounded-xl bg-zinc-800">Swap</button>
+                  <button onClick={()=>setBatsmen((p)=>({ ...p, [innings]: { striker: p[innings].nonStriker, nonStriker: p[innings].striker } }))} className="px-3 py-1 rounded-xl bg-zinc-800">Swap</button>
                   <div className="flex items-center gap-2">
-                    <button className="opacity-90 underline decoration-dotted underline-offset-4" onClick={() => openPicker("nonStriker")}>{batsmen[innings].nonStriker}</button>
+                    <span className="text-xs opacity-70">NON-STRIKER</span>
+                    <select
+                      className="px-2 py-1 rounded-lg bg-zinc-800"
+                      value={batsmen[innings].nonStriker === "—" ? "" : batsmen[innings].nonStriker}
+                      onChange={(e)=>{
+                        const val = e.target.value; if (!val) return;
+                        if (val === "__add__") {
+                          const nm = window.prompt("New batsman (non-striker)"); if (!nm) return;
+                          setSavedPlayers((prev) => (prev.some(p => p.name.toLowerCase() === nm.toLowerCase()) ? prev : [...prev, { name: nm, common: false }]));
+                          setBatsmen((p)=>({ ...p, [innings]: { ...p[innings], nonStriker: nm } }));
+                          ensureBatter(nm);
+                        } else {
+                          setBatsmen((p)=>({ ...p, [innings]: { ...p[innings], nonStriker: val } }));
+                          ensureBatter(val);
+                        }
+                      }}
+                    >
+                      <option value="" disabled>{batsmen[innings].nonStriker === "—" ? "Select non-striker" : "Change non-striker"}</option>
+                      {savedPlayers.filter(p=>p.name!==batsmen[innings].striker).map(p => <option key={p.name} value={p.name}>{p.name}{p.common?" (C)":""}</option>)}
+                      <option value="__add__">+ Add new…</option>
+                    </select>
                   </div>
                 </div>
+
+                {/* Inline replacement after wicket */}
+                {pendingReplaceRole && (
+                  <div className="mt-3 p-3 rounded-xl bg-zinc-800">
+                    <div className="text-sm mb-2">Replace {pendingReplaceRole === 'striker' ? 'Striker' : 'Non-striker'}</div>
+                    <select className="px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-700" defaultValue="" onChange={(e)=>{
+                      const val = e.target.value; if (!val) return;
+                      if (val === "__add__") {
+                        const nm = window.prompt("New batsman name"); if (!nm) return;
+                        setSavedPlayers((prev) => (prev.some(p => p.name.toLowerCase() === nm.toLowerCase()) ? prev : [...prev, { name: nm, common: false }]));
+                        setBatsmen((p)=>({ ...p, [innings]: { ...p[innings], [pendingReplaceRole]: nm } }));
+                        ensureBatter(nm); setPendingReplaceRole(null);
+                      } else {
+                        setBatsmen((p)=>({ ...p, [innings]: { ...p[innings], [pendingReplaceRole]: val } }));
+                        ensureBatter(val); setPendingReplaceRole(null);
+                      }
+                    }}>
+                      <option value="" disabled>Select replacement</option>
+                      {savedPlayers
+                        .filter(p => p.name !== (pendingReplaceRole === 'striker' ? batsmen[innings].nonStriker : batsmen[innings].striker))
+                        .map(p => <option key={p.name} value={p.name}>{p.name}{p.common?" (C)":""}</option>)}
+                      <option value="__add__">+ Add new…</option>
+                    </select>
+                  </div>
+                )}
 
                 {/* Over strips */}
                 <div className="mt-3 text-sm">
                   <div className="opacity-70">LAST OVER</div>
                   <div className="font-mono">{lastOverStr[innings]}</div>
                   <div className="opacity-70 mt-2">CURRENT OVER</div>
-                  <div className="font-mono">{(currentOverEvents[innings] || []).map((ev) => symbolFor(ev)).join(" ") || "—"}</div>
+                  <div className="font-mono">{currentOverStr}</div>
                 </div>
               </div>
 
-                {/* Action pad */}
+              {/* Action pad */}
               <div className="grid grid-cols-4 gap-2">
-                <button onClick={() => addRuns(1)} className="px-3 py-3 rounded-2xl font-semibold bg-yellow-400 text-black">+1</button>
-                <button onClick={() => addRuns(2)} className="px-3 py-3 rounded-2xl font-semibold bg-yellow-400 text-black">+2</button>
-                <button onClick={() => addRuns(3)} className="px-3 py-3 rounded-2xl font-semibold bg-yellow-400 text-black">+3</button>
-                <button onClick={() => addRuns(4)} className="px-3 py-3 rounded-2xl font-semibold bg-yellow-400 text-black">4</button>
-                <button onClick={() => addRuns(6)} className="px-3 py-3 rounded-2xl font-semibold bg-yellow-400 text-black">6</button>
+                <button onClick={()=>addRuns(1)} className="px-3 py-3 rounded-2xl font-semibold bg-yellow-400 text-black">+1</button>
+                <button onClick={()=>addRuns(2)} className="px-3 py-3 rounded-2xl font-semibold bg-yellow-400 text-black">+2</button>
+                <button onClick={()=>addRuns(3)} className="px-3 py-3 rounded-2xl font-semibold bg-yellow-400 text-black">+3</button>
+                <button onClick={()=>addRuns(4)} className="px-3 py-3 rounded-2xl font-semibold bg-yellow-400 text-black">4</button>
+                <button onClick={()=>addRuns(6)} className="px-3 py-3 rounded-2xl font-semibold bg-yellow-400 text-black">6</button>
                 <button onClick={dot} className="px-3 py-3 rounded-2xl font-semibold bg-yellow-400 text-black">•</button>
                 <button onClick={wide} className="px-3 py-3 rounded-2xl font-semibold bg-yellow-400 text-black">Wide (Re)</button>
                 <button onClick={noBall} className="px-3 py-3 rounded-2xl font-semibold bg-yellow-400 text-black">No Ball (Re,0)</button>
@@ -694,7 +811,6 @@
 
             {menuOpen && <MenuModal />}
             {summaryOpen && <SummaryModal />}
-            {picker && <PlayerPicker />}
             {wicketOpen && <WicketModal />}
             {setupOpen && <ChaseSetupModal />}
           </div>
@@ -703,10 +819,15 @@
 
       const root = ReactDOM.createRoot(document.getElementById('root'));
       root.render(<App />);
+
+      // ---- Tiny self-tests in console ----
+      (function tests(){
+        const econ = (r,b)=> (b? (r*6)/b : 0);
+        const oversFmt=(balls)=>`${Math.floor(balls/6)}.${balls%6}`;
+        console.assert(oversFmt(7)==='1.1', 'oversFmt 7');
+        console.assert(oversFmt(0)==='0.0', 'oversFmt 0');
+        console.assert(econ(12,12).toFixed(2)==='6.00','econ 12/12');
+      })();
     </script>
   </body>
 </html>
-
-
-
-
